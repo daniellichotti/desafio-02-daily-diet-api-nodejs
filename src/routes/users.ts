@@ -2,54 +2,15 @@ import { FastifyInstance } from 'fastify'
 import { knex } from '../database'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
-import { checkSessionIdExists } from '../middleware/check-session-id'
 
 export async function usersRoutes(app: FastifyInstance) {
-  app.get(
-    '/',
-    {
-      preHandler: [checkSessionIdExists],
-    },
-    async (request) => {
-      const { sessionId } = request.cookies
-
-      const users = await knex('users').where('session_id', sessionId).select()
-
-      return { users }
-    },
-  )
-
-  app.get(
-    '/:id',
-    {
-      preHandler: [checkSessionIdExists],
-    },
-    async (request) => {
-      const getUserParamsSchema = z.object({
-        id: z.string().uuid(),
-      })
-
-      const { id } = getUserParamsSchema.parse(request.params)
-
-      const { sessionId } = request.cookies
-
-      const user = await knex('users')
-        .where({
-          session_id: sessionId,
-          id,
-        })
-        .first()
-
-      return { user }
-    },
-  )
-
   app.post('/', async (request, reply) => {
     const createUserBodySchema = z.object({
-      user_name: z.string(),
+      userName: z.string(),
+      userEmail: z.string(),
     })
 
-    const { user_name } = createUserBodySchema.parse(request.body)
+    const { userName, userEmail } = createUserBodySchema.parse(request.body)
 
     let sessionId = request.cookies.sessionId
 
@@ -60,16 +21,20 @@ export async function usersRoutes(app: FastifyInstance) {
         path: '/',
         maxAge: 60 * 60 * 24 * 7,
       })
-      await knex('users').insert({
-        id: randomUUID(),
-        user_name,
-        session_id: sessionId,
-      })
-    } else {
-      reply.status(401).send({
-        error: 'Unauthorized',
-      })
     }
+
+    const userByEmail = await knex('users').where({ userEmail }).first()
+
+    if (userByEmail) {
+      return reply.status(400).send({ message: 'User already exists' })
+    }
+
+    await knex('users').insert({
+      id: randomUUID(),
+      userName,
+      userEmail,
+      session_id: sessionId,
+    })
 
     return reply.status(201).send()
   })
