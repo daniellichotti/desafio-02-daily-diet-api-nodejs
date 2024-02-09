@@ -5,6 +5,15 @@ declare module 'knex/types/tables' {
     users: {
       id: string
       userName: string
+      session_id: string
+    }
+    meals: {
+      id: string
+      userId: string
+      mealName: string
+      dateAndTime: string
+      description: string
+      onDiet: boolean
     }
   }
 }
